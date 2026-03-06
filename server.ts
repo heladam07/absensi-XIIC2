@@ -77,12 +77,17 @@ async function startServer() {
 
   // Auth Mock
   app.post("/api/login", (req, res) => {
-    const { username, password } = req.body;
-    const user = db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, password);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(401).json({ error: "Invalid credentials" });
+    try {
+      const { username, password } = req.body;
+      const user = db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, password);
+      if (user) {
+        res.json(user);
+      } else {
+        res.status(401).json({ error: "Username atau password salah" });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Terjadi kesalahan pada server" });
     }
   });
 

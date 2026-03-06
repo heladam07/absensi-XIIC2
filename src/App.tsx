@@ -94,15 +94,24 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setUser(data);
-        setActiveTab('home');
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        if (res.ok) {
+          setUser(data);
+          setActiveTab('home');
+        } else {
+          setError(data.error || 'Username atau password salah');
+        }
       } else {
-        setError(data.error || 'Login gagal');
+        const text = await res.text();
+        console.error('Server error:', text);
+        setError('Server sedang bermasalah, silakan coba lagi nanti');
       }
     } catch (err) {
-      setError('Terjadi kesalahan koneksi');
+      console.error('Connection error:', err);
+      setError('Gagal terhubung ke server. Pastikan koneksi internet Anda stabil.');
     } finally {
       setLoading(false);
     }
