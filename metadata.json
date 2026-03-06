@@ -1,0 +1,5 @@
+{
+  "name": "Absensi Pintar",
+  "description": "Sistem absensi sekolah modern dengan verifikasi selfie untuk siswa, serta pemantauan real-time untuk guru dan orang tua.",
+  "requestFramePermissions": ["camera"]
+}
