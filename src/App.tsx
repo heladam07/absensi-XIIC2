@@ -58,6 +58,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'home' | 'stats' | 'profile'>('home');
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Teacher Data
   const [students, setStudents] = useState<User[]>([]);
@@ -83,6 +84,17 @@ export default function App() {
       fetchParentData(user.child_id);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,21 +130,43 @@ export default function App() {
   };
 
   const fetchTeacherData = async () => {
-    const [sRes, aRes, stRes] = await Promise.all([
-      fetch('/api/students'),
-      fetch('/api/attendance/today'),
-      fetch('/api/stats')
-    ]);
-    setStudents(await sRes.json());
-    setTodayAttendance(await aRes.json());
-    setStats(await stRes.json());
+    setLoading(true);
+    try {
+      const [sRes, aRes, stRes] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/attendance/today'),
+        fetch('/api/stats')
+      ]);
+      
+      if (!sRes.ok || !aRes.ok || !stRes.ok) {
+        throw new Error('Gagal memuat data guru');
+      }
+
+      setStudents(await sRes.json());
+      setTodayAttendance(await aRes.json());
+      setStats(await stRes.json());
+    } catch (err) {
+      console.error('Fetch teacher data error:', err);
+      showNotification('Gagal memuat data terbaru', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchParentData = async (childId: number) => {
-    const res = await fetch(`/api/child-attendance/${childId}`);
-    const data = await res.json();
-    setChildHistory(data.history);
-    setChildName(data.child_name);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/child-attendance/${childId}`);
+      if (!res.ok) throw new Error('Gagal memuat data anak');
+      const data = await res.json();
+      setChildHistory(data.history);
+      setChildName(data.child_name);
+    } catch (err) {
+      console.error('Fetch parent data error:', err);
+      showNotification('Gagal memuat riwayat absensi', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startCamera = async () => {
@@ -143,7 +177,7 @@ export default function App() {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      alert("Gagal mengakses kamera");
+      showNotification("Gagal mengakses kamera", "error");
       setIsCameraOpen(false);
     }
   };
@@ -172,12 +206,12 @@ export default function App() {
 
   const submitAttendance = async () => {
     if (!selfie && status === 'Hadir') {
-      alert("Silakan ambil selfie terlebih dahulu untuk verifikasi kehadiran.");
+      showNotification("Silakan ambil selfie terlebih dahulu", "error");
       return;
     }
     setLoading(true);
     try {
-      await fetch('/api/attendance', {
+      const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,12 +221,18 @@ export default function App() {
           notes
         })
       });
-      alert("Absensi berhasil dikirim!");
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Gagal mengirim absensi');
+      }
+
+      showNotification("Absensi berhasil dikirim!", "success");
       setSelfie(null);
       setNotes('');
       if (user?.role === 'teacher') fetchTeacherData();
-    } catch (err) {
-      alert("Gagal mengirim absensi");
+    } catch (err: any) {
+      showNotification(err.message || "Gagal mengirim absensi", "error");
     } finally {
       setLoading(false);
     }
@@ -574,6 +614,23 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 20 }}
+            exit={{ opacity: 0, y: -50 }}
+            className={`fixed top-0 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-xl text-white font-bold flex items-center gap-2 ${
+              notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+            }`}
+          >
+            {notification.type === 'success' ? <CheckCircle2 size={20} /> : <ShieldCheck size={20} />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
