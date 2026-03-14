@@ -7,73 +7,85 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("absensi_pintar.db");
+let db: Database.Database;
 
-// Initialize Database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    role TEXT CHECK(role IN ('student', 'teacher', 'parent')),
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    class_name TEXT,
-    child_id INTEGER, -- For parents
-    FOREIGN KEY (child_id) REFERENCES users(id)
-  );
+try {
+  db = new Database("absensi_pintar.db");
+  // Initialize Database
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      role TEXT CHECK(role IN ('student', 'teacher', 'parent')),
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      class_name TEXT,
+      child_id INTEGER, -- For parents
+      FOREIGN KEY (child_id) REFERENCES users(id)
+    );
 
-  CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id INTEGER,
-    status TEXT CHECK(status IN ('Hadir', 'Izin', 'Sakit', 'Alpa')),
-    selfie_url TEXT,
-    notes TEXT,
-    date TEXT DEFAULT CURRENT_DATE,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES users(id)
-  );
-`);
+    CREATE TABLE IF NOT EXISTS attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER,
+      status TEXT CHECK(status IN ('Hadir', 'Izin', 'Sakit', 'Alpa')),
+      selfie_url TEXT,
+      notes TEXT,
+      date TEXT DEFAULT CURRENT_DATE,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES users(id)
+    );
+  `);
 
-// Seed initial data
-const userCount = db.prepare("SELECT count(*) as count FROM users").get() as { count: number };
-if (userCount.count === 0) {
-  // Teachers
-  const teacherNames = [
-    "IBU ELNI", "PAK SERVAS", "PAK MURTO", "PAK ABE", "PAK KEVIN",
-    "IBU ELIN", "IBU ANI", "IBU MEI", "PAK JAFRO", "PAK WILLI", "PAK VIKI"
-  ];
+  // Seed initial data
+  const userCount = db.prepare("SELECT count(*) as count FROM users").get() as { count: number };
+  if (userCount.count === 0) {
+    // Teachers
+    const teacherNames = [
+      "IBU ELNI", "PAK SERVAS", "PAK MURTO", "PAK ABE", "PAK KEVIN",
+      "IBU ELIN", "IBU ANI", "IBU MEI", "PAK JAFRO", "PAK WILLI", "PAK VIKI"
+    ];
 
-  teacherNames.forEach((name, index) => {
-    const username = index === 0 ? "guru" : `guru${index + 1}`;
-    const password = index === 0 ? "guru123" : "password";
-    db.prepare("INSERT INTO users (name, role, username, password) VALUES (?, ?, ?, ?)").run(name, "teacher", username, password);
-  });
-  
-  const studentNames = [
-    "Agresia A.Cika", "Agustinus G.Nggeal", "Aleksius Hugo", "Alimira P.E.Syamlan",
-    "Amelia C.Anul", "Efrasia F.Latar", "Gregorius R.Jerni", "Maria E.B.Jehama",
-    "Maria K.m.Batumali", "Maria S.Jehambur", "Maria Y.T.Dangur", "Marsela V. Indriani",
-    "Michela M.Lioran", "Modestus M.Jemadi", "Monika Y.Stiani", "Natalia NAbit",
-    "Oktavianus Kasu", "Oswaldus A.Jelahu", "Reinaldus Jorsen", "Sevrianus Areh",
-    "Simfonianus D.Agol", "Vinsensius V.Jalar", "Yoalita A.D.Jeneo", "Yohana A. Adam",
-    "Yohanes Florentino", "Yonesius Balsano", "Yorimus O.Adu"
-  ];
+    teacherNames.forEach((name, index) => {
+      const username = index === 0 ? "guru" : `guru${index + 1}`;
+      const password = index === 0 ? "guru123" : "password";
+      db.prepare("INSERT INTO users (name, role, username, password) VALUES (?, ?, ?, ?)").run(name, "teacher", username, password);
+    });
+    
+    const studentNames = [
+      "Agresia A.Cika", "Agustinus G.Nggeal", "Aleksius Hugo", "Alimira P.E.Syamlan",
+      "Amelia C.Anul", "Efrasia F.Latar", "Gregorius R.Jerni", "Maria E.B.Jehama",
+      "Maria K.m.Batumali", "Maria S.Jehambur", "Maria Y.T.Dangur", "Marsela V. Indriani",
+      "Michela M.Lioran", "Modestus M.Jemadi", "Monika Y.Stiani", "Natalia NAbit",
+      "Oktavianus Kasu", "Oswaldus A.Jelahu", "Reinaldus Jorsen", "Sevrianus Areh",
+      "Simfonianus D.Agol", "Vinsensius V.Jalar", "Yoalita A.D.Jeneo", "Yohana A. Adam",
+      "Yohanes Florentino", "Yonesius Balsano", "Yorimus O.Adu"
+    ];
 
-  studentNames.forEach((name, index) => {
-    const username = index === 0 ? "siswa1" : `siswa${index + 1}`;
-    const password = index === 0 ? "siswa12" : "password";
-    db.prepare("INSERT INTO users (name, role, username, password, class_name) VALUES (?, ?, ?, ?, ?)").run(name, "student", username, password, "XIIC2");
-  });
+    studentNames.forEach((name, index) => {
+      const username = index === 0 ? "siswa1" : `siswa${index + 1}`;
+      const password = index === 0 ? "siswa12" : "password";
+      db.prepare("INSERT INTO users (name, role, username, password, class_name) VALUES (?, ?, ?, ?, ?)").run(name, "student", username, password, "XIIC2");
+    });
 
-  const andiId = db.prepare("SELECT id FROM users WHERE username = ?").get("siswa1") as { id: number };
-  
-  // Parent 1 (Agresia's parent)
-  db.prepare("INSERT INTO users (name, role, username, password, child_id) VALUES (?, ?, ?, ?, ?)").run("Orang Tua Agresia", "parent", "ortu", "ortu321", andiId.id);
+    const andiId = db.prepare("SELECT id FROM users WHERE username = ?").get("siswa1") as { id: number };
+    
+    if (andiId) {
+      // Parent 1 (Agresia's parent)
+      db.prepare("INSERT INTO users (name, role, username, password, child_id) VALUES (?, ?, ?, ?, ?)").run("Orang Tua Agresia", "parent", "ortu", "ortu321", andiId.id);
+    }
+  }
+} catch (err) {
+  console.error("Database initialization failed:", err);
 }
 
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
+
+  // Health Check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", database: !!db });
+  });
 
   // Auth Mock
   app.post("/api/login", (req, res) => {

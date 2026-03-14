@@ -107,7 +107,7 @@ export default function App() {
       } else {
         const text = await res.text();
         console.error('Server error:', text);
-        setError('Server sedang bermasalah, silakan coba lagi nanti');
+        setError(`Server bermasalah (Status: ${res.status}). Silakan coba lagi nanti.`);
       }
     } catch (err) {
       console.error('Connection error:', err);
